@@ -21,7 +21,7 @@ from hyperglass.util.typing import is_type
 from hyperglass.execution.main import execute
 from hyperglass.models.api.response import QueryResponse
 from hyperglass.models.config.params import Params, APIParams
-from hyperglass.models.config.devices import Devices, APIDevice
+from hyperglass.models.config.devices import Devices, APIDevice, APIDeviceQueries
 
 # Local
 from .state import get_state, get_params, get_devices
@@ -50,9 +50,9 @@ async def devices(devices: Devices) -> t.List[APIDevice]:
 
 
 @get("/api/queries", dependencies={"devices": Provide(get_devices)})
-async def queries(devices: Devices) -> t.List[str]:
-    """Retrieve all directive names."""
-    return devices.directive_names()
+async def queries(devices: Devices) -> t.List[APIDeviceQueries]:
+    """Retrieve each device with the directives it accepts on /api/query."""
+    return devices.api_queries()
 
 
 @get("/api/info", dependencies={"params": Provide(get_params)})

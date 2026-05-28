@@ -43,6 +43,27 @@ class APIDevice(t.TypedDict):
     group: t.Union[str, None]
 
 
+class APIDirective(t.TypedDict, total=False):
+    """API-facing directive summary."""
+
+    id: str
+    name: str
+    field_type: t.Union[t.Literal["text", "select"], None]
+    description: str
+    groups: t.List[str]
+    info: t.Union[str, None]
+    options: t.List[t.Dict[str, t.Any]]
+
+
+class APIDeviceQueries(t.TypedDict):
+    """API-facing device with its supported directives."""
+
+    id: str
+    name: str
+    group: t.Union[str, None]
+    directives: t.List[APIDirective]
+
+
 class DirectiveOptions(HyperglassModel, extra="ignore"):
     """Per-device directive options."""
 
@@ -345,6 +366,18 @@ class Devices(MultiModel, model=Device, unique_by="id"):
     def directive_names(self) -> t.List[str]:
         """Get all directive names for all devices."""
         return list({directive.name for device in self for directive in device.directives})
+
+    def api_queries(self: "Devices") -> t.List[APIDeviceQueries]:
+        """Export each device with the directives it accepts on /api/query."""
+        return [
+            {
+                "id": device.id,
+                "name": device.name,
+                "group": device.group,
+                "directives": [d.frontend() for d in device.directives],
+            }
+            for device in self
+        ]
 
     def frontend(self: "Devices") -> t.List[t.Dict[str, t.Any]]:
         """Export grouped devices for UIParameters."""

@@ -4,10 +4,10 @@
 import typing as t
 import hashlib
 import secrets
-from datetime import datetime
+from datetime import UTC, datetime
 
 # Third Party
-from pydantic import BaseModel, ConfigDict, field_validator, StringConstraints
+from pydantic import BaseModel, ConfigDict, ValidationInfo, field_validator, StringConstraints
 from typing_extensions import Annotated
 
 # Project
@@ -44,7 +44,7 @@ class Query(BaseModel):
 
     model_config = ConfigDict(extra="allow", alias_generator=snake_to_camel, populate_by_name=True)
 
-    # Device `name` field
+    # Device `id` (or `name`, normalized to `id` by the validator)
     query_location: QueryLocation
 
     query_target: t.Union[t.List[QueryTarget], QueryTarget]
@@ -57,17 +57,15 @@ class Query(BaseModel):
         """Initialize the query with a UTC timestamp at initialization time."""
         super().__init__(**data)
         self._kwargs = data
-        self.timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        self.timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
         state = use_state()
         self._state = state
 
-        query_directives = self.device.directives.matching(self.query_type)
-
-        if len(query_directives) < 1:
-            raise QueryTypeNotFound(query_type=self.query_type)
-
-        self.directive = query_directives[0]
+        try:
+            self.directive = self.device.directives[self.query_type]
+        except IndexError as err:
+            raise QueryTypeNotFound(query_type=self.query_type) from err
 
         self._input_plugin_manager = InputPluginManager()
 
@@ -127,20 +125,30 @@ class Query(BaseModel):
 
     @field_validator("query_location")
     def validate_query_location(cls, value):
-        """Ensure query_location is defined."""
+        """Ensure query_location resolves to a known device, normalizing to its id."""
 
         devices = use_state("devices")
 
-        if not devices.valid_id_or_name(value):
-            raise QueryLocationNotFound(location=value)
+        for device in devices:
+            if value == device.id:
+                return value
+            if value == device.name:
+                return device.id
 
-        return value
+        raise QueryLocationNotFound(location=value)
 
     @field_validator("query_type")
-    def validate_query_type(cls, value: t.Any):
-        """Ensure a requested query type exists."""
+    def validate_query_type(cls, value: t.Any, info: ValidationInfo):
+        """Ensure the requested query type exists on the targeted device."""
+        location = info.data.get("query_location")
+        if location is None:
+            # query_location failed to validate; surface that error instead.
+            return value
+
         devices = use_state("devices")
-        if any((device.has_directives(value) for device in devices)):
+        device = devices[location]
+
+        if device.has_directives(value):
             return value
 
         raise QueryTypeNotFound(query_type=value)
