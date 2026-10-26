@@ -87,3 +87,5 @@ LINUX_PLATFORMS = (
     "bird",
     "openbgpd",
 )
+
+SHELL_PLATFORMS = LINUX_PLATFORMS + ("tnsr",)

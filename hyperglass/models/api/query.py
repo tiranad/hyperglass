@@ -23,7 +23,10 @@ from ..config.devices import Device
 
 
 QueryLocation = Annotated[str, StringConstraints(strict=True, min_length=1, strip_whitespace=True)]
-QueryTarget = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
+QueryTarget = Annotated[
+    str,
+    StringConstraints(min_length=1, strip_whitespace=True, pattern=r"^[^\x00-\x1f\x7f]+$"),
+]
 QueryType = Annotated[str, StringConstraints(strict=True, min_length=1, strip_whitespace=True)]
 
 

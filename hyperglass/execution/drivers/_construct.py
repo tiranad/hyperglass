@@ -9,12 +9,13 @@ hyperglass API modules.
 import re
 import json as _json
 import typing as t
+import shlex
 import ipaddress
 
 # Project
 from hyperglass.log import log
 from hyperglass.util import get_fmt_keys
-from hyperglass.constants import TRANSPORT_REST, TARGET_FORMAT_SPACE
+from hyperglass.constants import TRANSPORT_REST, TARGET_FORMAT_SPACE, SHELL_PLATFORMS
 from hyperglass.exceptions.public import InputInvalid
 from hyperglass.exceptions.private import ConfigError
 
@@ -110,7 +111,12 @@ class Construct:
         except ValueError:
             pass
 
-        return command.format(target=self.target, mask=mask, **attrs)
+        fmt = {"target": self.target, "mask": mask, **attrs}
+
+        if self.device.platform in SHELL_PLATFORMS:
+            return " ".join(shlex.quote(word.format(**fmt)) for word in shlex.split(command))
+
+        return command.format(**fmt)
 
     def queries(self):
         """Return queries for each enabled AFI."""
